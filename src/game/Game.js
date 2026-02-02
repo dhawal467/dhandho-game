@@ -403,13 +403,18 @@ function payDebt({ G, ctx, events }, cardIndices) {
     const player = G.players[playerId];
     const collector = G.players[debt.to];
     let totalPaid = 0;
+    const uniqueCardIndices = [...new Set(cardIndices || [])];
+
+    for (const index of uniqueCardIndices) {
+        if (!Number.isInteger(index) || index < 0 || index >= player.bank.length) {
+            return INVALID_MOVE;
+        }
+    }
 
     // Transfer cards from bank
-    cardIndices.forEach(index => {
-        if (player.bank[index]) {
-            const card = player.bank[index];
-            totalPaid += card.value || 0;
-        }
+    uniqueCardIndices.forEach(index => {
+        const card = player.bank[index];
+        totalPaid += card.value || 0;
     });
 
     // Validate payment is enough
@@ -429,7 +434,7 @@ function payDebt({ G, ctx, events }, cardIndices) {
         }
     } else {
         // Remove cards in reverse order to avoid index shifting
-        cardIndices.sort((a, b) => b - a).forEach(index => {
+        uniqueCardIndices.sort((a, b) => b - a).forEach(index => {
             const card = player.bank.splice(index, 1)[0];
             collector.bank.push(card);
         });
@@ -462,12 +467,17 @@ function payBirthday({ G, ctx, events }, cardIndices) {
     const player = G.players[playerId];
     const birthdayPlayer = G.players[G.pendingAction.to];
     let totalPaid = 0;
+    const uniqueCardIndices = [...new Set(cardIndices || [])];
+
+    for (const index of uniqueCardIndices) {
+        if (!Number.isInteger(index) || index < 0 || index >= player.bank.length) {
+            return INVALID_MOVE;
+        }
+    }
 
     // Validate payment
-    cardIndices.forEach(index => {
-        if (player.bank[index]) {
-            totalPaid += player.bank[index].value || 0;
-        }
+    uniqueCardIndices.forEach(index => {
+        totalPaid += player.bank[index].value || 0;
     });
 
     const required = 2;
@@ -478,7 +488,7 @@ function payBirthday({ G, ctx, events }, cardIndices) {
     }
 
     // Transfer cards
-    cardIndices.sort((a, b) => b - a).forEach(index => {
+    uniqueCardIndices.sort((a, b) => b - a).forEach(index => {
         const card = player.bank.splice(index, 1)[0];
         birthdayPlayer.bank.push(card);
     });
