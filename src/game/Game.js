@@ -304,7 +304,7 @@ export const DhandhoGame = {
                     // Initialize birthday payments tracker
                     G.birthdayPayments = {};
                     allOpponents.forEach(pid => {
-                        G.birthdayPayments[pid] = null; // Track payment status per player
+                        G.birthdayPayments[pid] = false; // Track payment status per player
                     });
                     G.pendingAction = { type: 'BIRTHDAY', to: ctx.currentPlayer };
 
@@ -481,11 +481,11 @@ function payBirthday({ G, ctx, events }, cardIndices) {
     });
 
     // Record payment
-    G.birthdayPayments[playerId] = totalPaid;
+    G.birthdayPayments[playerId] = true;
 
     // Check if all have paid
     const allPaid = Object.keys(G.birthdayPayments).every(pid =>
-        G.birthdayPayments[pid] !== null
+        G.birthdayPayments[pid] === true
     );
 
     if (allPaid) {
