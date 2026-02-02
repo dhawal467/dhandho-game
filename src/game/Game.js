@@ -254,6 +254,8 @@ export const DhandhoGame = {
 
             const card = player.hand[cardIndex];
             if (card.type !== CardType.ACTION) return INVALID_MOVE;
+            const baseCardId = card.id.split('_')[0];
+            if (baseCardId === 'ABBA') return INVALID_MOVE;
 
             // Remove card and consume action
             player.hand.splice(cardIndex, 1);
@@ -261,7 +263,7 @@ export const DhandhoGame = {
             G.actionsRemaining--;
 
             // Route to appropriate stage or immediate effect
-            switch (card.id.split('_')[0]) { // Get base card ID without instance number
+            switch (baseCardId) { // Get base card ID without instance number
                 case 'PASS':
                     // Draw 2 cards immediately
                     for (let i = 0; i < 2; i++) {
@@ -283,10 +285,15 @@ export const DhandhoGame = {
                     if (opponents.length === 0) break;
 
                     if (opponents.length === 1) {
-                        // Auto-target single opponent
-                        G.debtOwed[opponents[0]] = { amount: 5, to: ctx.currentPlayer };
+                        // Auto-target single opponent for response
+                        G.pendingAction = {
+                            type: 'DEBT_COLLECTION',
+                            amount: 5,
+                            from: ctx.currentPlayer,
+                            target: opponents[0],
+                        };
                         events.setActivePlayers({
-                            value: { [opponents[0]]: 'payingDebt' },
+                            value: { [opponents[0]]: 'respondToAction' },
                             moveLimit: 1,
                         });
                     } else {
@@ -306,12 +313,16 @@ export const DhandhoGame = {
                     allOpponents.forEach(pid => {
                         G.birthdayPayments[pid] = false; // Track payment status per player
                     });
-                    G.pendingAction = { type: 'BIRTHDAY', to: ctx.currentPlayer };
+                    G.pendingAction = {
+                        type: 'BIRTHDAY',
+                        to: ctx.currentPlayer,
+                        targets: [...allOpponents],
+                    };
 
-                    // Put all opponents in paying stage
+                    // Put all opponents in respond stage
                     const stageConfig = {};
                     allOpponents.forEach(pid => {
-                        stageConfig[pid] = 'payingBirthday';
+                        stageConfig[pid] = 'respondToAction';
                     });
                     events.setActivePlayers({
                         value: stageConfig,
@@ -321,23 +332,20 @@ export const DhandhoGame = {
 
                 case 'SCAM':
                     // Deal Breaker - Steal complete set
+                    G.pendingAction = { type: 'SCAM', from: ctx.currentPlayer };
                     events.setStage('selectPropertySet');
                     break;
 
                 case 'JUGAAD':
                     // Sly Deal - Steal single property
+                    G.pendingAction = { type: 'JUGAAD', from: ctx.currentPlayer };
                     events.setStage('selectSingleProperty');
                     break;
 
                 case 'ADLA':
                     // Forced Deal - Swap properties
+                    G.pendingAction = { type: 'ADLA', from: ctx.currentPlayer };
                     events.setStage('selectPropertiesForSwap');
-                    break;
-
-                case 'ABBA':
-                    // Just Say No - This should be played reactively
-                    // For now, cancel any pending action
-                    G.pendingAction = null;
                     break;
 
                 default:
@@ -373,20 +381,15 @@ function selectDebtTarget({ G, ctx, events }, targetPlayerId) {
         return INVALID_MOVE;
     }
 
-    // Set debt
-    G.debtOwed[targetPlayerId] = {
-        amount: G.pendingAction.amount,
-        to: G.pendingAction.from,
-    };
+    G.pendingAction.target = targetPlayerId;
 
-    // Move target to paying stage
+    // Move target to respond stage
     events.setActivePlayers({
-        value: { [targetPlayerId]: 'payingDebt' },
+        value: { [targetPlayerId]: 'respondToAction' },
         moveLimit: 1,
     });
 
-    // Clear pending action and return to main stage
-    G.pendingAction = null;
+    // Return to main stage
     events.endStage();
 }
 
@@ -498,6 +501,10 @@ function payBirthday({ G, ctx, events }, cardIndices) {
 
 // Scam 1992: Select set to steal
 function selectSetToSteal({ G, ctx, events }, targetPlayerId, color) {
+    if (!G.pendingAction || G.pendingAction.type !== 'SCAM') {
+        return INVALID_MOVE;
+    }
+
     if (!G.players[targetPlayerId] || targetPlayerId === ctx.currentPlayer) {
         return INVALID_MOVE;
     }
@@ -510,16 +517,26 @@ function selectSetToSteal({ G, ctx, events }, targetPlayerId, color) {
         return INVALID_MOVE;
     }
 
-    // Steal entire set
-    const player = G.players[ctx.currentPlayer];
-    player.properties[color].push(...propertyCards);
-    targetPlayer.properties[color] = [];
+    G.pendingAction = {
+        ...G.pendingAction,
+        target: targetPlayerId,
+        color,
+    };
+
+    events.setActivePlayers({
+        value: { [targetPlayerId]: 'respondToAction' },
+        moveLimit: 1,
+    });
 
     events.endStage();
 }
 
 // Jugaad: Select single property to steal
 function selectPropertyToSteal({ G, ctx, events }, targetPlayerId, color, propertyIndex) {
+    if (!G.pendingAction || G.pendingAction.type !== 'JUGAAD') {
+        return INVALID_MOVE;
+    }
+
     if (!G.players[targetPlayerId] || targetPlayerId === ctx.currentPlayer) {
         return INVALID_MOVE;
     }
@@ -536,16 +553,27 @@ function selectPropertyToSteal({ G, ctx, events }, targetPlayerId, color, proper
         return INVALID_MOVE;
     }
 
-    // Steal property
-    const player = G.players[ctx.currentPlayer];
-    const stolenCard = propertyCards.splice(propertyIndex, 1)[0];
-    player.properties[stolenCard.color].push(stolenCard);
+    G.pendingAction = {
+        ...G.pendingAction,
+        target: targetPlayerId,
+        color,
+        propertyIndex,
+    };
+
+    events.setActivePlayers({
+        value: { [targetPlayerId]: 'respondToAction' },
+        moveLimit: 1,
+    });
 
     events.endStage();
 }
 
 // Adla Badli: Swap properties
 function selectPropertySwap({ G, ctx, events }, myColor, myIndex, targetPlayerId, theirColor, theirIndex) {
+    if (!G.pendingAction || G.pendingAction.type !== 'ADLA') {
+        return INVALID_MOVE;
+    }
+
     const player = G.players[ctx.currentPlayer];
     const targetPlayer = G.players[targetPlayerId];
 
@@ -568,28 +596,130 @@ function selectPropertySwap({ G, ctx, events }, myColor, myIndex, targetPlayerId
         return INVALID_MOVE;
     }
 
-    // Perform swap
-    player.properties[myColor].splice(myIndex, 1);
-    targetPlayer.properties[theirColor].splice(theirIndex, 1);
+    G.pendingAction = {
+        ...G.pendingAction,
+        target: targetPlayerId,
+        myColor,
+        myIndex,
+        theirColor,
+        theirIndex,
+    };
 
-    player.properties[theirProperty.color].push(theirProperty);
-    targetPlayer.properties[myProperty.color].push(myProperty);
+    events.setActivePlayers({
+        value: { [targetPlayerId]: 'respondToAction' },
+        moveLimit: 1,
+    });
 
     events.endStage();
 }
 
 // Just Say No: Block action
-function playJustSayNo({ G, events }) {
+function playJustSayNo({ G, ctx, events }) {
     if (!G.pendingAction) return INVALID_MOVE;
 
-    // Cancel pending action
-    G.pendingAction = null;
+    const targets = G.pendingAction.targets || [];
+    const isTarget =
+        G.pendingAction.target === ctx.currentPlayer ||
+        targets.includes(ctx.currentPlayer);
+
+    if (!isTarget) return INVALID_MOVE;
+
+    if (G.pendingAction.type === 'BIRTHDAY') {
+        G.birthdayPayments[ctx.currentPlayer] = true;
+        G.pendingAction.targets = targets.filter(pid => pid !== ctx.currentPlayer);
+
+        const allResolved = Object.keys(G.birthdayPayments).every(pid =>
+            G.birthdayPayments[pid] === true
+        );
+
+        if (allResolved) {
+            G.pendingAction = null;
+            G.birthdayPayments = {};
+        }
+    } else {
+        G.pendingAction = null;
+    }
+
     events.endStage();
 }
 
 // Accept action
-function acceptAction({ G, events }) {
-    // Execute pending action (simplified for now)
-    G.pendingAction = null;
-    events.endStage();
+function acceptAction({ G, ctx, events }) {
+    if (!G.pendingAction) return INVALID_MOVE;
+
+    const targets = G.pendingAction.targets || [];
+    const isTarget =
+        G.pendingAction.target === ctx.currentPlayer ||
+        targets.includes(ctx.currentPlayer);
+
+    if (!isTarget) return INVALID_MOVE;
+
+    switch (G.pendingAction.type) {
+        case 'DEBT_COLLECTION': {
+            G.debtOwed[ctx.currentPlayer] = {
+                amount: G.pendingAction.amount,
+                to: G.pendingAction.from,
+            };
+            G.pendingAction = null;
+            events.setStage('payingDebt');
+            return;
+        }
+        case 'BIRTHDAY': {
+            G.pendingAction.targets = targets.filter(pid => pid !== ctx.currentPlayer);
+            events.setStage('payingBirthday');
+            return;
+        }
+        case 'SCAM': {
+            const fromPlayer = G.players[G.pendingAction.from];
+            const targetPlayer = G.players[G.pendingAction.target];
+            const propertyCards = targetPlayer?.properties[G.pendingAction.color];
+
+            if (!fromPlayer || !targetPlayer || !propertyCards) return INVALID_MOVE;
+            if (!isSetComplete(propertyCards, G.pendingAction.color)) return INVALID_MOVE;
+
+            fromPlayer.properties[G.pendingAction.color].push(...propertyCards);
+            targetPlayer.properties[G.pendingAction.color] = [];
+            G.pendingAction = null;
+            events.endStage();
+            return;
+        }
+        case 'JUGAAD': {
+            const fromPlayer = G.players[G.pendingAction.from];
+            const targetPlayer = G.players[G.pendingAction.target];
+            const propertyCards = targetPlayer?.properties[G.pendingAction.color];
+            const stolenCard = propertyCards?.[G.pendingAction.propertyIndex];
+
+            if (!fromPlayer || !targetPlayer || !stolenCard) return INVALID_MOVE;
+            if (isSetComplete(propertyCards, G.pendingAction.color)) return INVALID_MOVE;
+
+            propertyCards.splice(G.pendingAction.propertyIndex, 1);
+            fromPlayer.properties[stolenCard.color].push(stolenCard);
+            G.pendingAction = null;
+            events.endStage();
+            return;
+        }
+        case 'ADLA': {
+            const fromPlayer = G.players[G.pendingAction.from];
+            const targetPlayer = G.players[G.pendingAction.target];
+            const myProperty = fromPlayer?.properties[G.pendingAction.myColor]?.[G.pendingAction.myIndex];
+            const theirProperty = targetPlayer?.properties[G.pendingAction.theirColor]?.[G.pendingAction.theirIndex];
+
+            if (!fromPlayer || !targetPlayer || !myProperty || !theirProperty) return INVALID_MOVE;
+            if (isSetComplete(fromPlayer.properties[G.pendingAction.myColor], G.pendingAction.myColor)) return INVALID_MOVE;
+            if (isSetComplete(targetPlayer.properties[G.pendingAction.theirColor], G.pendingAction.theirColor)) {
+                return INVALID_MOVE;
+            }
+
+            fromPlayer.properties[G.pendingAction.myColor].splice(G.pendingAction.myIndex, 1);
+            targetPlayer.properties[G.pendingAction.theirColor].splice(G.pendingAction.theirIndex, 1);
+
+            fromPlayer.properties[theirProperty.color].push(theirProperty);
+            targetPlayer.properties[myProperty.color].push(myProperty);
+            G.pendingAction = null;
+            events.endStage();
+            return;
+        }
+        default:
+            return INVALID_MOVE;
+    }
 }
