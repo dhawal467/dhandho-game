@@ -12,7 +12,7 @@ const server = Server({
     games: [DhandhoGame],
 });
 
-const PORT = process.env.PORT || 8000;
+
 
 // Serve static files from dist in production
 if (process.env.NODE_ENV === 'production') {
@@ -20,8 +20,8 @@ if (process.env.NODE_ENV === 'production') {
     server.app.use(serve(staticPath));
 }
 
-// CRITICAL FIX: Use the port Render gives us, or 8000 if local
-const PORT = process.env.PORT || 8000;
+// Robust Startup Logic
+const PORT = parseInt(process.env.PORT) || 8000;
 
 server.run(PORT, () => {
     console.log(`🎮 Dhandho Server running on port ${PORT}`);
