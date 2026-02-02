@@ -6,7 +6,7 @@
   "description": "Dhandho - Indian Business Hustle Card Game (Monopoly Deal inspired)",
   "scripts": {
     "dev": "vite",
-    "server": "node server/server.cjs",
+    "server": "node server/server.js",
     "dev:all": "concurrently \"npm run server\" \"npm run dev\"",
     "build": "vite build",
     "preview": "vite preview"
