@@ -20,6 +20,9 @@ if (process.env.NODE_ENV === 'production') {
     server.app.use(serve(staticPath));
 }
 
+// CRITICAL FIX: Use the port Render gives us, or 8000 if local
+const PORT = process.env.PORT || 8000;
+
 server.run(PORT, () => {
     console.log(`🎮 Dhandho Server running on port ${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
