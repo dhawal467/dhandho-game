@@ -1,4 +1,4 @@
-import { Server } from 'boardgame.io/server';
+import { Server } from 'boardgame.io/dist/cjs/server.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import serve from 'koa-static';
