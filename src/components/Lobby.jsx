@@ -35,7 +35,6 @@ const DhandhoLobby = ({ gameComponent: GameComponent }) => {
 
         // Initialize Socket.IO for lobby synchronization
         const socket = io(SERVER_URL, {
-            path: '/lobby-socket/',
             transports: ['websocket', 'polling'],
         });
 

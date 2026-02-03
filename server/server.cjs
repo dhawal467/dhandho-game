@@ -45,16 +45,17 @@ async function startServer() {
     const httpServer = startedServer.appServer || startedServer;
 
     // Create Socket.IO instance attached to the same HTTP server
+    // Uses default path '/socket.io/' to match client connection
     const io = new SocketIOServer(httpServer, {
         cors: {
             origin: '*',
             methods: ['GET', 'POST'],
             credentials: true,
         },
-        path: '/lobby-socket/',
+        // No custom path - uses default /socket.io/
     });
 
-    console.log(`💬 Lobby Socket.IO ready at /lobby-socket/`);
+    console.log(`💬 Lobby Socket.IO ready at /socket.io/ (default path)`);
 
     // Lobby state management
     const lobbyRooms = new Map(); // Store lobby state for each room
