@@ -51,10 +51,9 @@ async function startServer() {
             methods: ['GET', 'POST'],
             credentials: true,
         },
-        path: '/lobby-socket/',
     });
 
-    console.log(`💬 Lobby Socket.IO ready at /lobby-socket/`);
+    console.log(`💬 Lobby Socket.IO ready`);
 
     // Lobby state management
     const lobbyRooms = new Map(); // Store lobby state for each room
