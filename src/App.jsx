@@ -13,6 +13,10 @@ const SERVER_URL = (() => {
         return rawServerUrl.replace(/\/lobby-socket\/?$/i, '');
     }
 })();
+const SERVER_URL = (import.meta.env.VITE_SERVER_URL || 'http://localhost:8000').replace(
+    /\/lobby-socket\/?$/i,
+    ''
+);
 
 // Create the multiplayer client
 const DhandhoClient = Client({
