@@ -2,7 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LobbyClient } from 'boardgame.io/client';
 import io from 'socket.io-client';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:8000';
+const rawServerUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:8000';
+const SERVER_URL = (() => {
+    try {
+        return new URL(rawServerUrl).origin;
+    } catch {
+        return rawServerUrl.replace(/\/lobby-socket\/?$/i, '');
+    }
+})();
 
 // Generate a random 4-character room code
 const generateRoomCode = () => {
@@ -35,7 +42,6 @@ const DhandhoLobby = ({ gameComponent: GameComponent }) => {
 
         // Initialize Socket.IO for lobby synchronization
         const socket = io(SERVER_URL, {
-            path: '/lobby-socket/',
             transports: ['websocket', 'polling'],
         });
 

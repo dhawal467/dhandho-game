@@ -5,7 +5,14 @@ import { DhandhoGame } from './game/Game';
 import GameBoard from './components/GameBoard';
 import DhandhoLobby from './components/Lobby';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:8000';
+const rawServerUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:8000';
+const SERVER_URL = (() => {
+    try {
+        return new URL(rawServerUrl).origin;
+    } catch {
+        return rawServerUrl.replace(/\/lobby-socket\/?$/i, '');
+    }
+})();
 
 // Create the multiplayer client
 const DhandhoClient = Client({
